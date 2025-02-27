@@ -1,0 +1,12 @@
+streamlit
+validators
+requests
+pandas
+matplotlib
+seaborn
+numpy
+yfinance
+scikit-learn
+tensorflow
+yahooquery
+fpdf
