@@ -44,12 +44,11 @@ if not st.session_state.authenticated:
             st.experimental_rerun()  # Refresh the page
         else:
             st.error("Invalid username or password")
+    st.stop() # Prevents further execution until logged in
 
 # If authenticated, show main content
 if st.session_state.authenticated:
     st.sidebar.button("Logout", on_click=lambda: st.session_state.update(authenticated=False))
-    st.title("Welcome to the App!")
-    st.write("This is your main application content.")
 
 @st.cache_data
 def get_stock_data_securely(ticker, timeout=10, max_retries=3):
