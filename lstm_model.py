@@ -42,7 +42,7 @@ if not st.session_state.authenticated:
         if check_login(username, password):
             st.session_state.authenticated = True
             st.success("Login successful!")
-            st.experimental_rerun()  # Refresh the page
+            st.rerun()  # Refresh the page
         else:
             st.error("Invalid username or password")
     st.stop() # Prevents further execution until logged in
