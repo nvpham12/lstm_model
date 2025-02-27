@@ -1,3 +1,4 @@
+import bcrypt
 import validators
 import requests
 import time
