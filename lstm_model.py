@@ -3,20 +3,26 @@ import validators
 import requests
 import time
 import tempfile
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import streamlit as st
 import yfinance as yf
+
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error, r2_score
+
 from tensorflow.keras.layers import Input, Dropout, LSTM, Dense
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.callbacks import EarlyStopping
+
 from yahooquery import search
 from io import StringIO
 from fpdf import FPDF
+from io import BytesIO
+import base64
 
 # Initialize session state for login
 if "authenticated" not in st.session_state:
@@ -150,6 +156,40 @@ def generate_pdf(summary_stats, performance_metrics_option, selected_plot_keys, 
             pdf.image(tmpfile.name, x=10, y=20, w=180)
 
     return pdf
+
+# Function to generate HTML report
+def generate_html(summary_stats, performance_metrics_option, selected_plot_keys, plots, model_plots, performance_metrics=None):
+    html = StringIO()
+    html.write("<html><head><title>Report</title></head><body>")
+    html.write("<h1>Report</h1>")
+
+    # Add Summary Statistics Table
+    if summary_stats:
+        html.write("<h2>Summary Statistics</h2>")
+        stats = data.describe().reset_index()
+        html.write(stats.to_html())
+
+    # Add Performance Metrics
+    if performance_metrics_option and performance_metrics:
+        html.write("<h2>Performance Metrics</h2>")
+        for metric, value in performance_metrics.items():
+            html.write(f"<p>{metric}: {value:.4f}</p>")
+
+    # Add Plots from both dictionaries
+    for plot_key in selected_plot_keys:
+        if plot_key in plots:
+            fig = plots[plot_key]
+        elif plot_key in model_plots:
+            fig = model_plots[plot_key]
+        else:
+            continue
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmpfile:
+            fig.savefig(tmpfile.name)
+            html.write(f"<h2>{plot_key}</h2>")
+            html.write(f'<img src="data:image/png;base64,{base64.b64encode(open(tmpfile.name, "rb").read()).decode()}" width="600"/>')
+
+    html.write("</body></html>")
+    return html.getvalue()
 
 st.title("Stock Price LSTM Model")
 
@@ -520,7 +560,7 @@ with tabs[5]:
     # Checkboxes for Plots
     selected_plot_keys = []
     st.write("Select Plots to Include:")
-    
+
     # Performance Metrics
     performance_metrics = {
         "Mean Absolute Error (MAE)": mae,
@@ -529,7 +569,7 @@ with tabs[5]:
         "Mean Percentage Error (MPE)": mpe,
         "Mean Absolute Percentage Error (MAPE)": mape,
         "R-squared": r2
-        }
+    }
 
     combined_plot_keys = list(plots.keys()) + list(model_plots.keys())
     for plot_key in combined_plot_keys:
@@ -537,17 +577,32 @@ with tabs[5]:
             selected_plot_keys.append(plot_key)
 
     # Button to generate the report
-    if st.button("Generate PDF Report"):
+    if st.button("Generate Report"):
         pdf = generate_pdf(include_summary_stats, include_performance_metrics, selected_plot_keys, plots, model_plots, performance_metrics)
-        pdf_output = f"report.pdf"
-        pdf.output(pdf_output)
-        st.success(f"Report generated successfully: {pdf_output}")
+        html = generate_html(include_summary_stats, include_performance_metrics, selected_plot_keys, plots, model_plots, performance_metrics)
+
+        # Display HTML report
+        st.components.v1.html(html, width=700, height=1000)
+
+        # Provide download options
+        st.success(f"Reports generated successfully!")
 
         # Button to download the generated PDF
-        with open(pdf_output, "rb") as file:
-            btn = st.download_button(
-                label="Download Report",
-                data=file,
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+            pdf.output(tmp_pdf.name)
+            tmp_pdf.seek(0)
+            st.download_button(
+                label="Download PDF Report",
+                data=tmp_pdf.read(),
                 file_name="LSTM_Model_Report.pdf",
-                mime="application/octet-stream"
-            )
+                mime="application/pdf"
+                )
+        # Button to download the generated HTML
+        html_bytes = BytesIO(html.encode())
+        html_bytes.seek(0)
+        st.download_button(
+            label="Download HTML Report",
+            data=html_bytes,
+            file_name="LSTM_Model_Report.html",
+            mime="text/html"
+        )
