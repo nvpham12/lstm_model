@@ -10,3 +10,4 @@ scikit-learn
 tensorflow
 yahooquery
 fpdf
+bcrypt
